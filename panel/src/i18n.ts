@@ -27,7 +27,7 @@ void i18n.use(initReactI18next).init({
           headerName: "请求头名称",
           headerValue: "请求头值",
           headerNamePlaceholder: "X-Title",
-          headerValuePlaceholder: "Grok Bot Switch",
+          headerValuePlaceholder: "Grok Switch Plus",
           removeHeader: "删除请求头",
         },
       },

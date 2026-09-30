@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.1.0-alpha.3 — 2026-09-30
+
+- Present PLUS as an independently maintained, complete Grok Bot model switcher, with product capabilities and installation/upgrade paths first.
+- Align the configuration panel, CLI identity and package metadata with Grok Switch Plus; retain configuration paths, command filenames and patch markers for existing deployments.
+- Port upstream 0.8.5 (`2005450`) tool strictness and machine-target validation fixes, preserving the distinct validation error and adding the upstream regressions to the combined Plus build.
+- Keep existing host adaptation, tool-history repairs, context compaction and guarded recovery; retain upstream and third-party attribution.
+- Publish compatibility evidence separately from the product positioning: structural checks and synthetic tests do not certify arbitrary new host releases.
+
 ## 0.1.0-alpha.2 — 2026-09-30
 
 - Add a read-only `preflight [host-path] [--json]` command sharing installer structure checks; it parses the candidate over stdin and performs no provider requests or host execution.

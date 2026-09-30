@@ -163,7 +163,7 @@ export default function App() {
           <div className="flex items-center gap-3 min-w-0">
             <div className="h-9 w-9 rounded-lg bg-primary text-primary-foreground flex items-center justify-center font-bold text-sm">GS</div>
             <div className="min-w-0">
-              <h1 className="text-base font-semibold leading-tight">Grok Bot Switch</h1>
+              <h1 className="text-base font-semibold leading-tight">Grok Switch Plus</h1>
               <p className="text-xs text-muted-foreground">v{state.version}</p>
             </div>
           </div>

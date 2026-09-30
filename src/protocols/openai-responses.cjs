@@ -245,7 +245,9 @@ function toResponsesTools(rawTools) {
     var item = {
       type: "function",
       name: fns[i].name,
-      parameters: fns[i].parameters
+      parameters: fns[i].parameters,
+      // Preserve optional host fields unless strict schemas are requested.
+      strict: fns[i].strict == null ? false : fns[i].strict
     };
     if (typeof fns[i].description === "string") {
       item.description = fns[i].description;

@@ -63,7 +63,7 @@ var CLI_TERMINAL_HOOKS = [
 var CLI_REQUIRED_HOST_NAMES = ["BasePromptExecutor", "BasePromptBuilder", "function createCursorSandInference("];
 
 var CLI_USAGE = [
-  "grok-switch " + CLI_VERSION + " - route Grok Bot inference to your own model API",
+  "Grok Switch Plus " + CLI_VERSION + " - model switching, host adaptation and runtime recovery",
   "",
   "usage: node grok-switch.cjs <command> [options]",
   "",
@@ -942,7 +942,7 @@ function cliCommandStatus(args) {
     }, null, 2));
     return;
   }
-  cliPrint("grok-switch " + CLI_VERSION);
+  cliPrint("Grok Switch Plus " + CLI_VERSION);
   if (!host.exists) {
     cliPrint("host bundle : not found at " + host.path + " (not inside the Grok Bot cloud machine?)");
   } else {

@@ -1,10 +1,35 @@
 # Grok Switch Plus
 
-把 grok-switch 在持续使用中遇到的阻碍，整理成可复用的修复、测试和迁移方法。
+**面向 Grok Bot 的持续维护模型切换器，集成宿主适配、工具调用修复、上下文管理与运行恢复。**
 
-**实验版 `0.1.0-alpha.2`** · [English](README.en.md) · [兼容性](docs/COMPATIBILITY.md) · [离线演示](docs/DEMO.md) · [安装与恢复](docs/OPERATIONS.md)
+**当前版本 `0.1.0-alpha.3`（预发布）** · [下载](https://github.com/yuwenjie058-boop/grok-switch-plus/releases/tag/v0.1.0-alpha.3) · [English](README.en.md) · [兼容性](docs/COMPATIBILITY.md) · [安装与恢复](docs/OPERATIONS.md)
 
-本项目派生自 [enderzcx/grok-bot-switch](https://github.com/enderzcx/grok-bot-switch)，沿用 MIT 许可。上游提供协议路由、命令行和配置面板；Plus 整理了在持续使用中增加的修复、上下文处理及运行守护。它不是 xAI、X 或 Grok Bot 官方项目，也不是完整的自托管 Grok Bot。
+Grok Switch Plus 让兼容 Linux Box 中的 Grok Bot 使用你配置的模型 API，并围绕连续工具执行、长对话和宿主更新提供配套能力。下载一个构建文件即可使用完整的切换器、命令行和配置面板，无需先安装上游项目。
+
+PLUS 基于 [enderzcx/grok-bot-switch](https://github.com/enderzcx/grok-bot-switch) 独立维护和发布，继承其协议路由与配置能力，继续发展宿主适配与稳定性改进。沿用 MIT 许可并保留原作者署名；它是社区项目，不隶属于 xAI、X 或 Grok Bot 官方。
+
+## PLUS 提供什么
+
+| 能力 | 现在可以做什么 |
+| --- | --- |
+| 模型与供应商切换 | 使用配置面板或 CLI 管理供应商，支持 OpenAI Chat Completions、Responses 和 Anthropic Messages；可切回官方推理 |
+| 宿主适配 | 包含 journal 与工具 hook 的适配逻辑；只读预检和安装器检查当前宿主结构 |
+| 连续工具执行 | 修复流式参数交付、图片历史与成功轮询误判；校验执行机器目标，避免无效参数被派发 |
+| 长对话管理 | 传递模型容量元数据；可选工具输出裁剪，保存原文并重放既有形态 |
+| 更新与恢复 | 提供备份、维护锁、运行版本收据及可选更新守护，帮助发现磁盘补丁与运行进程不一致 |
+| 可验证的交付 | 完整源码、单文件构建、离线演示与 Linux/Windows × Node 20/22 回归检查 |
+
+**alpha.3** 统一了 CLI、配置面板和发行物的 PLUS 身份，并纳入上游 0.8.5 的工具 `strict` 语义与执行机器目标修复。已有的上下文、宿主适配和恢复增强继续保留。详见 [更新记录](CHANGELOG.md) 和 [来源记录](UPSTREAM.md)。
+
+新版宿主适配是 PLUS 的维护重点。当前代码包含针对后续宿主结构变化的适配，但公开版本的真实宿主验收记录仍待补齐；请按 [兼容表](docs/COMPATIBILITY.md) 核对自己的环境。稳定性改进对应具体修复和回归测试，不代表所有版本、模型和任务都已验收。
+
+## 开始使用
+
+1. 从 [Releases](https://github.com/yuwenjie058-boop/grok-switch-plus/releases) 下载 `grok-switch.cjs` 和对应校验文件，或克隆本仓库自行构建。
+2. 在你管理的 Linux Box 上，按 [安装与恢复](docs/OPERATIONS.md) 备份、运行 `preflight` 并安装 PLUS。
+3. 在配置面板设置供应商，验证 API 连通，再确认真实客户端能收发消息和调用工具。
+
+已有上游版本的用户可直接采用 PLUS 构建更新，具体步骤见 [从上游或旧版 PLUS 更新](docs/OPERATIONS.md#从上游或旧版-plus-更新)。已有命令、配置目录和补丁标记继续沿用，升级前仍需备份和结构检查。
 
 ## 我们跨过了哪些阻碍
 
@@ -19,7 +44,7 @@
 | 官方更新覆盖补丁；磁盘已修复但旧进程仍在运行 | 兼容性和空闲检查、备份、运行收据及请求验证 | 守护状态机、并发与恢复测试 |
 | 换完模型/执行位置后员工不回消息，任务可能由两边调度 | 分开核对身份、历史、客户端路由与唯一调度方 | 迁移方法；独立实验性调度核心 |
 
-详见 **[阻碍、解法与验证证据](docs/OBSTACLES.md)**。这些是基于我们采用的旧版本及后续运行环境所做的改进，不代表当前上游仍存在全部问题；具体基线见 [UPSTREAM.md](UPSTREAM.md)。
+详见 **[阻碍、解法与验证证据](docs/OBSTACLES.md)**。这些改进来自旧版基线和后续运行环境中的实际障碍；部分由宿主变化引入。对比范围及已纳入的上游修复见 [UPSTREAM.md](UPSTREAM.md)。
 
 ## 十分钟内看到效果
 

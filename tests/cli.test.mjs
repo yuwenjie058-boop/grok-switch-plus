@@ -500,7 +500,7 @@ test("ui panel: same-origin loopback API drives save, probe, use, official and s
 
     const page = await fetch(base + "/");
     assert.equal(page.status, 200);
-    assert.match(await page.text(), /Grok Bot Switch/);
+    assert.match(await page.text(), /<title>Grok Switch Plus<\/title>/);
     // Access rules: page header required; foreign Origin and non-loopback Host rejected; own origin fine.
     assert.equal((await api(base, { "x-gs-panel": null }, "/api/state")).status, 403, "missing panel header");
     assert.equal((await api(base, { origin: "http://evil.example" }, "/api/state")).status, 403, "cross-site origin");

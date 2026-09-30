@@ -946,6 +946,24 @@ test("/gs official repairs a broken active pointer", async () => {
   assert.equal(host.inference.createSession(null, {}).official, true);
 });
 
+// Upstream 2005450 regression, exercised against the combined Plus payload.
+test("OAuth-shaped Responses never dispatch invalid machine arguments to the host", async () => {
+  const auth = { tokens: { access_token: "synthetic", account_id: "synthetic" } };
+  const provider = { protocol: "openai-responses", baseUrl: "https://chatgpt.com/backend-api/codex", model: "gpt-5-codex", authType: "codex" };
+  const files = new Map([[CONFIG_PATH, config("cx", { cx: provider })], ["/codex/auth.json", JSON.stringify(auth)]]);
+  const args = '{"command":"hostname","machineId":null}';
+  const frames = [
+    { type: "response.output_item.added", output_index: 0, item: { type: "function_call", id: "fc_1", call_id: "call_1", name: "Shell", arguments: "" } },
+    { type: "response.function_call_arguments.delta", output_index: 0, delta: args },
+    { type: "response.function_call_arguments.done", output_index: 0, arguments: args }
+  ].map(x => `data: ${JSON.stringify(x)}\n\n`).join("");
+  const host = loadHost({ files, fetchImpl: () => sse(frames) });
+  const out = await drain(host.inference.createSession(null, {}).getExecutor([{ role: "user", content: "hostname" }]).stream({}, "i", [], {}));
+  assert.match(out.streamError.message, /Invalid machineId/);
+  assert.equal(out.events.some(e => e.type === "tool-call" || e.type === "tool-call-delta"), false);
+  assert.equal(host.fetches.length, 1, "no retry or native fallback");
+});
+
 test("codex auth signs with the ChatGPT login and refreshes once on 401", async () => {
   const idToken = "h." + Buffer.from(JSON.stringify({ aud: "client-123" })).toString("base64url") + ".s";
   const auth = { auth_mode: "chatgpt", tokens: { access_token: "old-access", refresh_token: "refresh-1", id_token: idToken, account_id: "acct-9" } };

@@ -1,5 +1,7 @@
 # CC Switch frontend transplant
 
+The panel is distributed as part of Grok Switch Plus. The PLUS title and package identity were updated in alpha.3; the inherited design, adapted components and attribution below remain.
+
 - Source: https://github.com/farion1231/cc-switch
 - Pin: `d8065cc628fcd373d00c4363d718095f19e78c9e` (package version 3.20.1)
 - License: MIT, Copyright (c) 2025 Jason Young. Full notice: `licenses/CC-Switch-MIT.txt`.

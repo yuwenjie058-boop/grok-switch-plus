@@ -3,6 +3,20 @@ on: [push, pull_request]
 permissions:
   contents: read
 jobs:
+  panel:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: panel/package-lock.json
+      - run: npm ci --no-audit --no-fund
+        working-directory: panel
+      - run: npm run build
+        working-directory: panel
+      - run: git diff --exit-code -- panel/dist/index.html
   core:
     strategy:
       fail-fast: false

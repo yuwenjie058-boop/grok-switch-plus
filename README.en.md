@@ -1,8 +1,27 @@
 # Grok Switch Plus
 
-Reusable fixes and lessons from running grok-switch beyond initial model switching. [中文](README.md)
+**An independently maintained model switcher for Grok Bot, with host adaptation, tool reliability, context management and guarded recovery.** [中文](README.md)
 
-Derived from [enderzcx/grok-bot-switch](https://github.com/enderzcx/grok-bot-switch), under MIT. The upstream supplies the routing foundation, CLI and provider panel. This repository packages additional tool-protocol repairs, context compaction, maintenance locking and watchdog recovery. It is independent of xAI/X and does not provide a complete self-hosted Grok Bot.
+Grok Switch Plus routes inference on compatible Linux Box hosts to your configured model APIs. It ships the complete switcher, CLI and provider panel in one file; no prior upstream installation is required.
+
+Based on [enderzcx/grok-bot-switch](https://github.com/enderzcx/grok-bot-switch), PLUS has its own source repository, maintenance and releases. It retains the upstream MIT license and attribution while extending host adaptation, continuous tool execution and operational recovery. It is a community project independent of xAI/X, and requires the existing Grok Bot host.
+
+## What PLUS includes
+
+- Provider management and switching through the panel or CLI, with Chat Completions, Responses and Anthropic Messages adapters and a return-to-official mode.
+- Journal/tool-hook adaptation and read-only checks against the current host structure.
+- Streaming argument and image-history repairs, successful polling support, and execution-machine validation.
+- Explicit context capacity metadata and opt-in tool-output compaction with recoverable originals and recorded replay shapes.
+- Backups, maintenance locking, loaded-runtime receipts and an opt-in update watchdog.
+- Complete source, a single-file build, an offline demo and Linux/Windows × Node 20/22 regression coverage.
+
+**Current prerelease: [0.1.0-alpha.3](https://github.com/yuwenjie058-boop/grok-switch-plus/releases/tag/v0.1.0-alpha.3).** This release aligns the panel, CLI and distribution under PLUS, and incorporates upstream 0.8.5 tool strictness and machine-target fixes alongside existing Plus enhancements. See [provenance](UPSTREAM.md) and [changelog](CHANGELOG.md).
+
+## Install or upgrade
+
+Download `grok-switch.cjs` and its checksums from [Releases](https://github.com/yuwenjie058-boop/grok-switch-plus/releases), or build this repository. Follow [operations](docs/OPERATIONS.md) on an authorized Linux Box: back up, preflight, install, configure a provider, then verify a real client round trip. Existing upstream/Plus deployments retain their command, configuration-directory and patch-marker conventions; stop competing writers before upgrading.
+
+Adapting to host changes is a maintenance priority. Structural adaptations and regression coverage do not certify every newer host release. The [compatibility matrix](docs/COMPATIBILITY.md) records the current evidence and remaining runtime validation.
 
 ## Quick development check
 
@@ -22,7 +41,7 @@ The core build needs no npm install. Tests use synthetic hosts and temporary dir
 
 In **0.1.0-alpha.2**, the offline demo runs the actual engine with compaction disabled/enabled on the same synthetic input: about 184k serialized characters become 12.9k, with stable replay, recoverable originals and a ledger-failure check. These are character counts, not token, cost or quality measurements. No account or network is needed.
 
-`node dist/grok-switch.cjs preflight /path/to/host-main.cjs --json` reads the host and parses an in-memory candidate without executing it, reading provider settings or restarting anything. Exit 0 means structural eligibility; exit 2 means blocked. `runtimeVerified` always remains false. See the [compatibility matrix](docs/COMPATIBILITY.md), [demo](docs/DEMO.md), and [ledger reliability boundaries](docs/RELIABILITY.md). No public alpha.2 real-host version has been certified yet.
+`node dist/grok-switch.cjs preflight /path/to/host-main.cjs --json` reads the host and parses an in-memory candidate without executing it, reading provider settings or restarting anything. Exit 0 means structural eligibility; exit 2 means blocked. `runtimeVerified` always remains false. See the [compatibility matrix](docs/COMPATIBILITY.md), [demo](docs/DEMO.md), and [ledger reliability boundaries](docs/RELIABILITY.md). No public alpha.3 real-host version has been certified yet.
 
 The ledger now flushes the candidate file before replacement and its parent directory on Linux, uses a cooperative writer lock and snapshot comparison, preserves corrupt state for inspection, and cancels provisional folds evicted by capacity limits. An uncertain post-rename commit blocks the provider request. This is not a distributed storage guarantee or a physical power-loss test.
 

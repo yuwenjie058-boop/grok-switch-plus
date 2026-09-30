@@ -261,6 +261,7 @@ function toOpenAiTools(rawTools) {
     if (typeof fns[i].description === "string") {
       item.function.description = fns[i].description;
     }
+    if (typeof fns[i].strict === "boolean") item.function.strict = fns[i].strict;
     out.push(item);
   }
   return out;

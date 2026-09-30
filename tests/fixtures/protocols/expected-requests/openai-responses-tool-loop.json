@@ -39,6 +39,7 @@
         "type": "function",
         "name": "lookup",
         "description": "Look something up",
+        "strict": false,
         "parameters": {
           "type": "object",
           "properties": { "q": { "type": "string" } },
