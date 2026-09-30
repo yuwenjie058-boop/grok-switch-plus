@@ -74,6 +74,7 @@ var CLI_USAGE = [
   "  remove <name>                   delete a saved provider",
   "  list                            show saved providers",
   "  status [--json]                 show host patch, process, supervisor and config state",
+  "  preflight [host-path] [--json]  read-only host structure check; no provider calls or restart",
   "  test <name> [--json]            send one small request to a provider and print the reply",
   "  log [N]                         show the last N upstream requests (default 20)",
   "  restart                         ask the supervisor to restart the host when idle",
@@ -422,15 +423,56 @@ function cliNodeCheck(path) {
   }
 }
 
-function cliBundleSnapshot() {
-  var before = cliFs.lstatSync(CLI_HOST_PATH);
+function cliBundleSnapshot(hostPath) {
+  hostPath = hostPath || CLI_HOST_PATH;
+  var before = cliFs.lstatSync(hostPath);
   if (!before.isFile() || before.isSymbolicLink()) throw new CliError("host bundle must be a regular file");
-  var text = cliReadBundle();
-  var after = cliFs.lstatSync(CLI_HOST_PATH);
+  var text = cliFs.readFileSync(hostPath, "utf8");
+  var after = cliFs.lstatSync(hostPath);
   if (before.dev !== after.dev || before.ino !== after.ino || before.size !== after.size || before.mtimeMs !== after.mtimeMs || before.ctimeMs !== after.ctimeMs) {
     throw new CliError("host bundle changed while taking its snapshot; retry after the official update finishes");
   }
   return { text: text, hash: cliHash(text), dev: after.dev, ino: after.ino, size: after.size, mtimeMs: after.mtimeMs, ctimeMs: after.ctimeMs, mode: after.mode & 511 };
+}
+
+function cliCommandPreflight(args) {
+  var hostPath = args.positional[1] || CLI_HOST_PATH;
+  var report = { version: CLI_VERSION, scope: "static-host-structure", eligible: false,
+    runtimeVerified: false, platform: process.platform, bundleSha256: null, patched: null, checks: [],
+    limitations: ["No provider request, configuration read, host execution or restart is performed.",
+      "A structural pass is not a runtime or desktop-client compatibility certificate.",
+      "Deployment targets a compatible Linux Box; Windows checks are offline analysis only."] };
+  var stage = "host_snapshot";
+  try {
+    var snapshot = cliBundleSnapshot(hostPath);
+    report.bundleSha256 = snapshot.hash;
+    report.checks.push({ id: stage, ok: true });
+    stage = "patch_integrity";
+    var info = cliInspectBundle(snapshot.text);
+    report.patched = info.patched;
+    report.checks.push({ id: stage, ok: true });
+    stage = "host_contract";
+    cliAssertPatchable(info.stock);
+    var candidate = cliBuildPatched(info.stock);
+    report.checks.push({ id: stage, ok: true });
+    stage = "candidate_syntax";
+    // Parse over stdin: never execute the host and never write a candidate file.
+    var check = cliChildProcess.spawnSync(process.execPath, ["--check", "--input-type=commonjs"], { input: candidate, encoding: "utf8", timeout: 15000, maxBuffer: 1024 * 1024 });
+    if (check.status !== 0) throw new CliError("candidate syntax check failed");
+    report.checks.push({ id: stage, ok: true });
+    report.eligible = true;
+  } catch (_preflightError) {
+    // Parser diagnostics can quote private source. Report only bounded stages.
+    report.checks.push({ id: stage, ok: false });
+  }
+  if (args.flags.json) cliPrint(JSON.stringify(report));
+  else {
+    cliPrint("preflight: " + (report.eligible ? "STRUCTURE PASS" : "BLOCKED"));
+    for (var i = 0; i < report.checks.length; i += 1) cliPrint((report.checks[i].ok ? "  PASS " : "  FAIL ") + report.checks[i].id);
+    for (var j = 0; j < report.limitations.length; j += 1) cliPrint("  " + report.limitations[j]);
+  }
+  if (!report.eligible && cliCommandExitCodeArmed) process.exitCode = 2;
+  return report;
 }
 
 function cliAssertBundleSnapshot(expected) {
@@ -1038,6 +1080,7 @@ async function cliMain(argv) {
   if (command === "use") return cliCommandUse(args);
   if (command === "official") return cliCommandOfficial(args);
   if (command === "status") return cliCommandStatus(args);
+  if (command === "preflight") return cliCommandPreflight(args);
   if (command === "test") return cliCommandTest(args);
   if (command === "log") return cliCommandLog(args);
   if (command === "restart") return cliCommandRestart(args);

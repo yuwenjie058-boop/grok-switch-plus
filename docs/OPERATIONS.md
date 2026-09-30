@@ -9,6 +9,8 @@
 3. 等待活跃任务结束，避免同时由旧守护、官方更新或另一个补丁工具写入宿主。
 4. 在独立克隆中运行 `npm test`。把构建后的 `dist/grok-switch.cjs` 复制到目标 Box 的 `/workspace/grok-switch/grok-switch.cjs`，不要用上游下载链接替换 Plus 构建。
 
+先运行 `node /workspace/grok-switch/grok-switch.cjs preflight --json`。退出码 0 仅代表当前文件的静态结构通过，退出码 2 表示阻断；检查范围与版本证据见 [兼容表](COMPATIBILITY.md)。
+
 ## 安装与供应商
 
 在目标 Box 执行：
@@ -36,6 +38,8 @@ node /workspace/grok-switch/grok-switch.cjs log 5
 示例片段在 `examples/context-settings.json`，需要合并到现有私有配置，不能覆盖其中的供应商信息。先保持关闭，观察后使用 dry-run，再单独决定是否 apply。
 
 折叠处理的是大型工具结果，不是用户对话的通用语义摘要。账本维持已发送内容的形态，原文保存在运行目录 `ctx-cache/` 中。不要在活跃会话中随意清空缓存或账本，也不要把它们上传。`freshHeadChars`/`freshTailChars` 决定保留的首尾；旧 `keepHeadChars`/`keepTailChars` 不再控制裁剪。
+
+有限账本的淘汰和存储异常可能改变形态。alpha.2 的写入锁、文件/目录刷盘，以及异常恢复步骤见 [可靠性说明](RELIABILITY.md)。
 
 ## 可选守护
 

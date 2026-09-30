@@ -3,7 +3,7 @@
 - Project: https://github.com/enderzcx/grok-bot-switch
 - Local source baseline: `c612786ef8ec5e70c67fc691fea85cee1f06e724`
 - Original license: MIT, Copyright (c) 2026 enderzcx; retained unchanged in `LICENSE`.
-- Public Plus version: `0.1.0-alpha.1`; this is a separate version line, not an upstream release or a claim that current upstream changes were merged.
+- Initial public Plus version: `0.1.0-alpha.1`; alpha.2 adds public-source hardening and onboarding tools. This is a separate version line, not an upstream release or a claim that current upstream changes were merged.
 - Internal source snapshot used for this export: `0.8.4-cloud.12-ctxcompact41-hardening1`.
 
 This repository begins with a reviewed source snapshot. The private deployment workspace and its history are deliberately not included. The source snapshot contains more hardening than some field-deployed builds; field observations are not a substitute for verifying this exact release in a target environment.

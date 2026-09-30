@@ -1087,7 +1087,9 @@ function grokSwitchStream(provider, input) {
         messages = compactResult.messages;
         compactStats = compactResult.stats;
       }
-    } catch (_compactErr) {}
+    } catch (_compactErr) {
+      if (_compactErr != null && _compactErr.code === "GROK_SWITCH_COMPACT_COMMIT_UNCERTAIN") throw _compactErr;
+    }
   }
   var tools = input.tools;
   var options = input.options || {};

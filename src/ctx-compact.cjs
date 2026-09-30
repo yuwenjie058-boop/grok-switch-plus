@@ -152,13 +152,32 @@ function grokSwitchCompactLedgerLoad() {
   }
 }
 
-function grokSwitchCompactLedgerSave(ledger, opts, seen) {
+function grokSwitchCompactLedgerSave(ledger, opts, seen, expected) {
+  var cfs = grokSwitchFs();
+  var lock = GROK_SWITCH_COMPACT_LEDGER_PATH + ".lock";
+  var locked = false;
+  var tmp = null;
+  var fd = null;
+  var renamed = false;
   try {
-    var cfs = grokSwitchFs();
+    cfs.mkdirSync(GROK_SWITCH_DIR, { recursive: true, mode: 448 });
+    // Cooperating writers serialize the check and replacement. Never reclaim an
+    // ambiguous stale lock automatically: an operator must first stop writers.
+    cfs.mkdirSync(lock, { mode: 448 });
+    locked = true;
     // Merge what is on disk right now: a concurrent request may have recorded
     // shapes since this process loaded its copy, and dropping those records
     // would flip bytes that already went upstream.
-    var onDisk = grokSwitchCompactLedgerLoad();
+    var onDisk = {};
+    try {
+      onDisk = JSON.parse(cfs.readFileSync(GROK_SWITCH_COMPACT_LEDGER_PATH, "utf8"));
+      if (onDisk == null || typeof onDisk !== "object" || Array.isArray(onDisk)) return false;
+    } catch (readError) {
+      if (readError.code !== "ENOENT") return false;
+    }
+    // A different process may have committed after this request loaded its
+    // snapshot. Decline new folds instead of overwriting its shape decisions.
+    if (expected != null && JSON.stringify(onDisk) !== expected) return false;
     var mergeKey;
     for (mergeKey in onDisk) {
       if (Object.prototype.hasOwnProperty.call(onDisk, mergeKey)
@@ -186,13 +205,37 @@ function grokSwitchCompactLedgerSave(ledger, opts, seen) {
       var drop = keys.length - max;
       for (var i = 0; i < drop; i += 1) delete ledger[keys[i]];
     }
-    // Crash-safe: a torn ledger would flip already-sent shapes back to raw.
-    var tmp = GROK_SWITCH_COMPACT_LEDGER_PATH + ".tmp";
-    cfs.writeFileSync(tmp, JSON.stringify(ledger), { mode: 384 });
+    tmp = GROK_SWITCH_COMPACT_LEDGER_PATH + ".tmp." + require("node:crypto").randomBytes(12).toString("hex");
+    cfs.writeFileSync(tmp, JSON.stringify(ledger), { mode: 384, flag: "wx" });
+    fd = cfs.openSync(tmp, "r+");
+    cfs.fsyncSync(fd);
+    cfs.closeSync(fd);
+    fd = null;
     cfs.renameSync(tmp, GROK_SWITCH_COMPACT_LEDGER_PATH);
+    renamed = true;
+    tmp = null;
+    // Directory flushing is supported by our production Linux target. Windows
+    // provides atomic replacement/file flushing but is not certified for power loss.
+    if (process.platform !== "win32") {
+      fd = cfs.openSync(GROK_SWITCH_DIR, "r");
+      cfs.fsyncSync(fd);
+      cfs.closeSync(fd);
+      fd = null;
+    }
     return true;
   } catch (_ledgerWrite) {
+    if (renamed) {
+      // New bytes may already be visible. Sending raw now and replaying folded
+      // bytes next time would be inconsistent; let the host report an error.
+      var uncertain = new Error("grok-switch: ledger replacement could not be confirmed durable; inspect storage before retrying");
+      uncertain.code = "GROK_SWITCH_COMPACT_COMMIT_UNCERTAIN";
+      throw uncertain;
+    }
     return false;
+  } finally {
+    if (fd != null) { try { cfs.closeSync(fd); } catch (_closeLedger) {} }
+    if (tmp != null) { try { cfs.unlinkSync(tmp); } catch (_unlinkLedger) {} }
+    if (locked) { try { cfs.rmdirSync(lock); } catch (_unlockLedger) {} }
   }
 }
 var GROK_SWITCH_COMPACT_ERROR_TOKENS = [
@@ -515,6 +558,7 @@ function grokSwitchCompactMessages(messages, opts) {
   var freshHead = Number(opts.freshHeadChars) || 0;
   var freshTail = Number(opts.freshTailChars) || 0;
   var ledger = apply ? grokSwitchCompactLedgerLoad() : {};
+  var ledgerSnapshot = apply ? JSON.stringify(ledger) : null;
   var ledgerDirty = false;
   var seen = {};
   // A new fold stays provisional until the ledger write succeeds: an
@@ -701,7 +745,7 @@ function grokSwitchCompactMessages(messages, opts) {
       stats.folded += 1;
       if (parts == null) parts = m.content.slice();
       parts[j] = Object.assign({}, part, { result: folded });
-      pending.push({ hash: hash, parts: parts, index: j, original: part });
+      pending.push({ hash: hash, parts: parts, index: j, original: part, saved: stats.savedChars - beforeSaved, count: stats.parts - beforeParts });
       pendingSaved += stats.savedChars - beforeSaved;
       pendingParts += stats.parts - beforeParts;
     }
@@ -711,7 +755,7 @@ function grokSwitchCompactMessages(messages, opts) {
     }
   }
   if (apply && ledgerDirty) {
-    if (!grokSwitchCompactLedgerSave(ledger, opts, seen)) {
+    if (!grokSwitchCompactLedgerSave(ledger, opts, seen, ledgerSnapshot)) {
       // Fail closed: without a durable record the fold cannot be replayed, so
       // it must not be sent. Replays of recorded shapes stay applied.
       for (var q = 0; q < pending.length; q += 1) {
@@ -722,6 +766,19 @@ function grokSwitchCompactMessages(messages, opts) {
       stats.savedChars -= pendingSaved;
       stats.parts -= pendingParts;
       stats.ledgerWriteFailed = 1;
+    } else {
+      // Capacity pruning can evict a provisional shape in the same request.
+      // Only shapes whose records survived are allowed onto the wire.
+      for (var p = 0; p < pending.length; p += 1) {
+        var item = pending[p];
+        if (ledger[item.hash] == null) {
+          item.parts[item.index] = item.original;
+          stats.folded -= 1;
+          stats.savedChars -= item.saved;
+          stats.parts -= item.count;
+          stats.capacityHeld = (stats.capacityHeld || 0) + 1;
+        }
+      }
     }
   }
   return { messages: out == null ? messages : out, stats: stats };

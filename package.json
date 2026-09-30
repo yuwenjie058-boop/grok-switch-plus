@@ -1,6 +1,6 @@
 {
   "name": "grok-switch-plus",
-  "version": "0.1.0-alpha.1",
+  "version": "0.1.0-alpha.2",
   "private": true,
   "description": "Experimental Grok Bot inference routing with context compaction, protocol repairs and guarded runtime recovery.",
   "license": "MIT",
@@ -10,7 +10,9 @@
   "scripts": {
     "build": "node build.mjs",
     "test": "node build.mjs && node scripts/run-tests.mjs",
-    "test:cron": "node --test experimental/local-cron/local-cron.test.cjs"
+    "test:cron": "node --test experimental/local-cron/local-cron.test.cjs",
+    "demo": "node scripts/demo.mjs",
+    "preflight": "node dist/grok-switch.cjs preflight"
   },
   "repository": {
     "type": "git",

@@ -2,7 +2,7 @@
 
 把 grok-switch 在持续使用中遇到的阻碍，整理成可复用的修复、测试和迁移方法。
 
-**实验版 `0.1.0-alpha.1`** · [English](README.en.md) · [安装与恢复](docs/OPERATIONS.md) · [迁移设计](docs/MIGRATION.md)
+**实验版 `0.1.0-alpha.2`** · [English](README.en.md) · [兼容性](docs/COMPATIBILITY.md) · [离线演示](docs/DEMO.md) · [安装与恢复](docs/OPERATIONS.md)
 
 本项目派生自 [enderzcx/grok-bot-switch](https://github.com/enderzcx/grok-bot-switch)，沿用 MIT 许可。上游提供协议路由、命令行和配置面板；Plus 整理了在持续使用中增加的修复、上下文处理及运行守护。它不是 xAI、X 或 Grok Bot 官方项目，也不是完整的自托管 Grok Bot。
 
@@ -21,35 +21,40 @@
 
 详见 **[阻碍、解法与验证证据](docs/OBSTACLES.md)**。这些是基于我们采用的旧版本及后续运行环境所做的改进，不代表当前上游仍存在全部问题；具体基线见 [UPSTREAM.md](UPSTREAM.md)。
 
-## 这次公开什么
-
-| 模块 | 用途 | 状态 |
-| --- | --- | --- |
-| 三种协议适配 | OpenAI Chat Completions、Responses、Anthropic Messages；修复工具参数交付、截图顺序及历史降级 | 源码与回归测试 |
-| 上下文处理 v4.1 | 首次发送时折叠大型工具结果，保存原文与账本，后续保持同一种形态；支持对象结果 | 默认关闭，先 dry-run |
-| 容量元数据 | 将显式配置的 `contextWindowTokens` 传给宿主，供其摘要阈值使用 | 不按模型名称猜容量 |
-| 运行守护 | 观察兼容的宿主更新、空闲检查、备份、重启收据验证、失败锁定 | 必须显式启用 |
-| 提前收尾防护 | 对少量“已开始、稍后回报”但未实际执行的中文回复进行纠正 | 默认关闭，非通用完成判定 |
-| 本地调度核心 | 按任务与时间槽落盘占位，避免重复派发，不补跑历史任务 | 实验模块，未接入默认安装 |
-| 员工连续性迁移 | 身份、可见历史、客户端路由、定时任务的分层检查流程 | 设计文档，非一键迁移工具 |
-
-## 先在本机检查
+## 十分钟内看到效果
 
 核心构建与测试使用 Node.js 20+，无需安装第三方 npm 依赖：
 
 ```sh
 git clone https://github.com/yuwenjie058-boop/grok-switch-plus.git
 cd grok-switch-plus
+npm run demo
+npm run preflight -- examples/synthetic-host.cjs --json
 npm test
 npm run test:cron
-node dist/grok-switch.cjs help
 ```
 
-测试使用合成宿主和临时目录，不需要 API key，不修改正在运行的 Bot。构建产物是 `dist/grok-switch.cjs`；文件名和运行目录保留上游约定，避免破坏现有配置。
+演示把同一份合成工具消息从约 **18.4 万字符缩到 1.29 万字符**，并实际检查重放一致、原文可恢复、账本写入失败时保留原输出。它不调用 API，临时数据自动清理；数字是字符量，不代表 token 费用或任务质量。详见 [演示说明](docs/DEMO.md)。
+
+## 我的环境能不能用
+
+先看 [兼容表和验收标准](docs/COMPATIBILITY.md)，再对你有权访问的宿主文件副本运行：
+
+```sh
+node dist/grok-switch.cjs preflight /absolute/path/to/host-main.cjs --json
+```
+
+预检只读文件和检查候选语法，不执行宿主、不读取供应商配置、不调用 API、不重启。退出码 0 表示静态结构通过，2 表示阻断；即便通过，`runtimeVerified` 仍为 false。它不代替真实客户端往返验收。
+
+测试使用合成宿主和临时目录。构建产物是 `dist/grok-switch.cjs`；文件名和运行目录保留上游约定，避免破坏现有配置。
 
 **安装目标是兼容的云端 Linux Box 宿主。** Windows 上能构建、测试，不代表可以直接给 Windows 桌面客户端安装这个文件。平台侧 Temporal 会话也不会因换推理供应商自动变成本地会话。请先阅读 [安装与恢复](docs/OPERATIONS.md)，确认路由与备份，再在目标 Box 中安装。
 
 首次 `install` 会修改宿主并申请重启；测试通过不等于任意宿主版本兼容。仓库不分发官方客户端、`app.asar` 或宿主完整程序。
+
+## 可选与实验功能
+
+上下文裁剪、提前收尾防护默认关闭，更新守护需显式启用。账本刷盘、写入竞争、容量和恢复边界见 [可靠性说明](docs/RELIABILITY.md)。独立的 [本地调度核心](experimental/local-cron/README.md) 不由安装器接管任务；[员工连续性迁移](docs/MIGRATION.md) 目前提供检查流程，尚无一键迁移器。
 
 ## 配置与边界
 
@@ -67,7 +72,7 @@ node dist/grok-switch.cjs help
 
 面板源码及其锁文件保留在 `panel/`；重新构建面板需在该目录执行 `npm ci` 和 `npm run build`，再回根目录构建。面板要求满足其 Vite 依赖的 Node 版本，建议使用 Node.js 22.12+。
 
-欢迎提交脱敏的复现、合成测试和版本兼容修复。请先看 [贡献说明](CONTRIBUTING.md)、[安全说明](SECURITY.md)、[上游来源](UPSTREAM.md) 与 [首发说明](CHANGELOG.md)。优先事项是补齐可复现的宿主兼容矩阵，以及独立的迁移预检工具。
+欢迎提交脱敏的复现、合成测试和版本兼容修复。请先看 [贡献说明](CONTRIBUTING.md)、[安全说明](SECURITY.md)、[上游来源](UPSTREAM.md) 与 [更新说明](CHANGELOG.md)。优先事项是积累真实宿主兼容记录，以及把身份和迁移预检从文档进一步做成工具。
 
 ## 许可与致谢
 

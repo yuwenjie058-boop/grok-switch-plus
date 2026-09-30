@@ -86,6 +86,65 @@ function run(env, ...args) {
   return { code: result.status, out: result.stdout, err: result.stderr };
 }
 
+function snapshotTree(dir) {
+  const result = {};
+  function visit(current) {
+    for (const entry of fs.readdirSync(current, { withFileTypes: true })) {
+      const full = path.join(current, entry.name);
+      result[path.relative(dir, full)] = entry.isDirectory() ? 'directory' : fs.readFileSync(full).toString('base64');
+      if (entry.isDirectory()) visit(full);
+    }
+  }
+  visit(dir);
+  return result;
+}
+
+test('preflight reports structural eligibility without executing host or touching configuration', t => {
+  const { dir, host, env } = makeEnv();
+  t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+  fs.appendFileSync(host, '\nthrow new Error("must never execute this host");\n');
+  fs.mkdirSync(env.GROK_SWITCH_DIR);
+  fs.writeFileSync(path.join(env.GROK_SWITCH_DIR, 'config.json'), '{private-config-must-not-be-parsed');
+  const before = snapshotTree(dir);
+  const r = run(env, 'preflight', host, '--json');
+  assert.equal(r.code, 0, r.err);
+  const report = JSON.parse(r.out);
+  assert.equal(report.eligible, true);
+  assert.equal(report.scope, 'static-host-structure');
+  assert.equal(report.runtimeVerified, false);
+  assert.match(report.bundleSha256, /^[a-f0-9]{64}$/);
+  assert.deepEqual(snapshotTree(dir), before);
+  assert.equal(r.out.includes('private-config'), false);
+});
+
+for (const [name, content] of [
+  ['unknown structure', 'const unrelated = true;'],
+  ['ambiguous factory', FAKE_BUNDLE + '\nfunction createHostInference() {}'],
+  ['invalid syntax', FAKE_BUNDLE + '\nconst = ;'],
+  ['changed journal', FAKE_BUNDLE + '\nvar FileTranscriptMirror = class {};'],
+  ['damaged patch', FAKE_BUNDLE + '\n// GROK_SWITCH_BEGIN damaged\n'],
+  ['changed terminal hooks', FAKE_BUNDLE + '\nfunction createSendMessageTool2() {}']
+]) {
+  test(`preflight rejects ${name} and leaves the target unchanged`, t => {
+    const { dir, host, env } = makeEnv();
+    t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+    fs.writeFileSync(host, content);
+    const before = snapshotTree(dir), r = run(env, 'preflight', '--json');
+    assert.equal(r.code, 2, r.err);
+    assert.equal(JSON.parse(r.out).eligible, false);
+    assert.deepEqual(snapshotTree(dir), before);
+  });
+}
+
+test('preflight handles missing hosts with structured output and creates no paths', t => {
+  const { dir, env } = makeEnv();
+  t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+  const before = snapshotTree(dir), r = run(env, 'preflight', path.join(dir, 'missing', 'host.cjs'), '--json');
+  assert.equal(r.code, 2, r.err);
+  assert.equal(JSON.parse(r.out).eligible, false);
+  assert.deepEqual(snapshotTree(dir), before);
+});
+
 // Async variant for tests that host an HTTP server in this process; spawnSync
 // would block the event loop the server needs.
 function runAsync(env, ...args) {

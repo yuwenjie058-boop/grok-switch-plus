@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// grok-switch-plus 0.1.0-alpha.1 - https://github.com/yuwenjie058-boop/grok-switch-plus
+// grok-switch-plus 0.1.0-alpha.2 - https://github.com/yuwenjie058-boop/grok-switch-plus
 // Derived from enderzcx/grok-bot-switch (MIT); see UPSTREAM.md.
 // Single-file build. Do not edit; regenerate with `node build.mjs`.
 "use strict";
@@ -3498,7 +3498,7 @@ module.exports = {
 // Shared by the injected host and CLI. All names stay in the grokSwitch
 // namespace. Only cooperating writers honor this lock; the official updater
 // requires a separate snapshot recheck immediately before file replacement.
-var GROK_SWITCH_RUNTIME_VERSION = "0.1.0-alpha.1";
+var GROK_SWITCH_RUNTIME_VERSION = "0.1.0-alpha.2";
 var grokSwitchMaintenanceHeld = false;
 var grokSwitchConfigSnapshots = new WeakMap();
 var grokSwitchRuntimeReceipt = null;
@@ -4589,13 +4589,32 @@ function grokSwitchCompactLedgerLoad() {
   }
 }
 
-function grokSwitchCompactLedgerSave(ledger, opts, seen) {
+function grokSwitchCompactLedgerSave(ledger, opts, seen, expected) {
+  var cfs = grokSwitchFs();
+  var lock = GROK_SWITCH_COMPACT_LEDGER_PATH + ".lock";
+  var locked = false;
+  var tmp = null;
+  var fd = null;
+  var renamed = false;
   try {
-    var cfs = grokSwitchFs();
+    cfs.mkdirSync(GROK_SWITCH_DIR, { recursive: true, mode: 448 });
+    // Cooperating writers serialize the check and replacement. Never reclaim an
+    // ambiguous stale lock automatically: an operator must first stop writers.
+    cfs.mkdirSync(lock, { mode: 448 });
+    locked = true;
     // Merge what is on disk right now: a concurrent request may have recorded
     // shapes since this process loaded its copy, and dropping those records
     // would flip bytes that already went upstream.
-    var onDisk = grokSwitchCompactLedgerLoad();
+    var onDisk = {};
+    try {
+      onDisk = JSON.parse(cfs.readFileSync(GROK_SWITCH_COMPACT_LEDGER_PATH, "utf8"));
+      if (onDisk == null || typeof onDisk !== "object" || Array.isArray(onDisk)) return false;
+    } catch (readError) {
+      if (readError.code !== "ENOENT") return false;
+    }
+    // A different process may have committed after this request loaded its
+    // snapshot. Decline new folds instead of overwriting its shape decisions.
+    if (expected != null && JSON.stringify(onDisk) !== expected) return false;
     var mergeKey;
     for (mergeKey in onDisk) {
       if (Object.prototype.hasOwnProperty.call(onDisk, mergeKey)
@@ -4623,13 +4642,37 @@ function grokSwitchCompactLedgerSave(ledger, opts, seen) {
       var drop = keys.length - max;
       for (var i = 0; i < drop; i += 1) delete ledger[keys[i]];
     }
-    // Crash-safe: a torn ledger would flip already-sent shapes back to raw.
-    var tmp = GROK_SWITCH_COMPACT_LEDGER_PATH + ".tmp";
-    cfs.writeFileSync(tmp, JSON.stringify(ledger), { mode: 384 });
+    tmp = GROK_SWITCH_COMPACT_LEDGER_PATH + ".tmp." + require("node:crypto").randomBytes(12).toString("hex");
+    cfs.writeFileSync(tmp, JSON.stringify(ledger), { mode: 384, flag: "wx" });
+    fd = cfs.openSync(tmp, "r+");
+    cfs.fsyncSync(fd);
+    cfs.closeSync(fd);
+    fd = null;
     cfs.renameSync(tmp, GROK_SWITCH_COMPACT_LEDGER_PATH);
+    renamed = true;
+    tmp = null;
+    // Directory flushing is supported by our production Linux target. Windows
+    // provides atomic replacement/file flushing but is not certified for power loss.
+    if (process.platform !== "win32") {
+      fd = cfs.openSync(GROK_SWITCH_DIR, "r");
+      cfs.fsyncSync(fd);
+      cfs.closeSync(fd);
+      fd = null;
+    }
     return true;
   } catch (_ledgerWrite) {
+    if (renamed) {
+      // New bytes may already be visible. Sending raw now and replaying folded
+      // bytes next time would be inconsistent; let the host report an error.
+      var uncertain = new Error("grok-switch: ledger replacement could not be confirmed durable; inspect storage before retrying");
+      uncertain.code = "GROK_SWITCH_COMPACT_COMMIT_UNCERTAIN";
+      throw uncertain;
+    }
     return false;
+  } finally {
+    if (fd != null) { try { cfs.closeSync(fd); } catch (_closeLedger) {} }
+    if (tmp != null) { try { cfs.unlinkSync(tmp); } catch (_unlinkLedger) {} }
+    if (locked) { try { cfs.rmdirSync(lock); } catch (_unlockLedger) {} }
   }
 }
 var GROK_SWITCH_COMPACT_ERROR_TOKENS = [
@@ -4952,6 +4995,7 @@ function grokSwitchCompactMessages(messages, opts) {
   var freshHead = Number(opts.freshHeadChars) || 0;
   var freshTail = Number(opts.freshTailChars) || 0;
   var ledger = apply ? grokSwitchCompactLedgerLoad() : {};
+  var ledgerSnapshot = apply ? JSON.stringify(ledger) : null;
   var ledgerDirty = false;
   var seen = {};
   // A new fold stays provisional until the ledger write succeeds: an
@@ -5138,7 +5182,7 @@ function grokSwitchCompactMessages(messages, opts) {
       stats.folded += 1;
       if (parts == null) parts = m.content.slice();
       parts[j] = Object.assign({}, part, { result: folded });
-      pending.push({ hash: hash, parts: parts, index: j, original: part });
+      pending.push({ hash: hash, parts: parts, index: j, original: part, saved: stats.savedChars - beforeSaved, count: stats.parts - beforeParts });
       pendingSaved += stats.savedChars - beforeSaved;
       pendingParts += stats.parts - beforeParts;
     }
@@ -5148,7 +5192,7 @@ function grokSwitchCompactMessages(messages, opts) {
     }
   }
   if (apply && ledgerDirty) {
-    if (!grokSwitchCompactLedgerSave(ledger, opts, seen)) {
+    if (!grokSwitchCompactLedgerSave(ledger, opts, seen, ledgerSnapshot)) {
       // Fail closed: without a durable record the fold cannot be replayed, so
       // it must not be sent. Replays of recorded shapes stay applied.
       for (var q = 0; q < pending.length; q += 1) {
@@ -5159,6 +5203,19 @@ function grokSwitchCompactMessages(messages, opts) {
       stats.savedChars -= pendingSaved;
       stats.parts -= pendingParts;
       stats.ledgerWriteFailed = 1;
+    } else {
+      // Capacity pruning can evict a provisional shape in the same request.
+      // Only shapes whose records survived are allowed onto the wire.
+      for (var p = 0; p < pending.length; p += 1) {
+        var item = pending[p];
+        if (ledger[item.hash] == null) {
+          item.parts[item.index] = item.original;
+          stats.folded -= 1;
+          stats.savedChars -= item.saved;
+          stats.parts -= item.count;
+          stats.capacityHeld = (stats.capacityHeld || 0) + 1;
+        }
+      }
     }
   }
   return { messages: out == null ? messages : out, stats: stats };
@@ -5794,7 +5851,9 @@ function grokSwitchStream(provider, input) {
         messages = compactResult.messages;
         compactStats = compactResult.stats;
       }
-    } catch (_compactErr) {}
+    } catch (_compactErr) {
+      if (_compactErr != null && _compactErr.code === "GROK_SWITCH_COMPACT_COMMIT_UNCERTAIN") throw _compactErr;
+    }
   }
   var tools = input.tools;
   var options = input.options || {};
@@ -7484,7 +7543,7 @@ var cliFs = require("node:fs");
 var cliPath = require("node:path");
 var cliChildProcess = require("node:child_process");
 
-var CLI_VERSION = "0.1.0-alpha.1";
+var CLI_VERSION = "0.1.0-alpha.2";
 var CLI_HOST_PATH = process.env.GROK_SWITCH_HOST || "/home/box/sand-host/host-main.cjs";
 var CLI_HOST_VERSION_PATH = cliPath.join(cliPath.dirname(CLI_HOST_PATH), "version");
 var CLI_BACKUP_PATH = CLI_HOST_PATH + ".grok-switch.orig";
@@ -7552,6 +7611,7 @@ var CLI_USAGE = [
   "  remove <name>                   delete a saved provider",
   "  list                            show saved providers",
   "  status [--json]                 show host patch, process, supervisor and config state",
+  "  preflight [host-path] [--json]  read-only host structure check; no provider calls or restart",
   "  test <name> [--json]            send one small request to a provider and print the reply",
   "  log [N]                         show the last N upstream requests (default 20)",
   "  restart                         ask the supervisor to restart the host when idle",
@@ -7900,15 +7960,56 @@ function cliNodeCheck(path) {
   }
 }
 
-function cliBundleSnapshot() {
-  var before = cliFs.lstatSync(CLI_HOST_PATH);
+function cliBundleSnapshot(hostPath) {
+  hostPath = hostPath || CLI_HOST_PATH;
+  var before = cliFs.lstatSync(hostPath);
   if (!before.isFile() || before.isSymbolicLink()) throw new CliError("host bundle must be a regular file");
-  var text = cliReadBundle();
-  var after = cliFs.lstatSync(CLI_HOST_PATH);
+  var text = cliFs.readFileSync(hostPath, "utf8");
+  var after = cliFs.lstatSync(hostPath);
   if (before.dev !== after.dev || before.ino !== after.ino || before.size !== after.size || before.mtimeMs !== after.mtimeMs || before.ctimeMs !== after.ctimeMs) {
     throw new CliError("host bundle changed while taking its snapshot; retry after the official update finishes");
   }
   return { text: text, hash: cliHash(text), dev: after.dev, ino: after.ino, size: after.size, mtimeMs: after.mtimeMs, ctimeMs: after.ctimeMs, mode: after.mode & 511 };
+}
+
+function cliCommandPreflight(args) {
+  var hostPath = args.positional[1] || CLI_HOST_PATH;
+  var report = { version: CLI_VERSION, scope: "static-host-structure", eligible: false,
+    runtimeVerified: false, platform: process.platform, bundleSha256: null, patched: null, checks: [],
+    limitations: ["No provider request, configuration read, host execution or restart is performed.",
+      "A structural pass is not a runtime or desktop-client compatibility certificate.",
+      "Deployment targets a compatible Linux Box; Windows checks are offline analysis only."] };
+  var stage = "host_snapshot";
+  try {
+    var snapshot = cliBundleSnapshot(hostPath);
+    report.bundleSha256 = snapshot.hash;
+    report.checks.push({ id: stage, ok: true });
+    stage = "patch_integrity";
+    var info = cliInspectBundle(snapshot.text);
+    report.patched = info.patched;
+    report.checks.push({ id: stage, ok: true });
+    stage = "host_contract";
+    cliAssertPatchable(info.stock);
+    var candidate = cliBuildPatched(info.stock);
+    report.checks.push({ id: stage, ok: true });
+    stage = "candidate_syntax";
+    // Parse over stdin: never execute the host and never write a candidate file.
+    var check = cliChildProcess.spawnSync(process.execPath, ["--check", "--input-type=commonjs"], { input: candidate, encoding: "utf8", timeout: 15000, maxBuffer: 1024 * 1024 });
+    if (check.status !== 0) throw new CliError("candidate syntax check failed");
+    report.checks.push({ id: stage, ok: true });
+    report.eligible = true;
+  } catch (_preflightError) {
+    // Parser diagnostics can quote private source. Report only bounded stages.
+    report.checks.push({ id: stage, ok: false });
+  }
+  if (args.flags.json) cliPrint(JSON.stringify(report));
+  else {
+    cliPrint("preflight: " + (report.eligible ? "STRUCTURE PASS" : "BLOCKED"));
+    for (var i = 0; i < report.checks.length; i += 1) cliPrint((report.checks[i].ok ? "  PASS " : "  FAIL ") + report.checks[i].id);
+    for (var j = 0; j < report.limitations.length; j += 1) cliPrint("  " + report.limitations[j]);
+  }
+  if (!report.eligible && cliCommandExitCodeArmed) process.exitCode = 2;
+  return report;
 }
 
 function cliAssertBundleSnapshot(expected) {
@@ -8516,6 +8617,7 @@ async function cliMain(argv) {
   if (command === "use") return cliCommandUse(args);
   if (command === "official") return cliCommandOfficial(args);
   if (command === "status") return cliCommandStatus(args);
+  if (command === "preflight") return cliCommandPreflight(args);
   if (command === "test") return cliCommandTest(args);
   if (command === "log") return cliCommandLog(args);
   if (command === "restart") return cliCommandRestart(args);

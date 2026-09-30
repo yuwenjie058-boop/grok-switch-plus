@@ -1086,6 +1086,14 @@ test("ctx-compact folds a fresh tool result once and then replays the recorded s
   assert.equal(logs[1].compact.savedChars, logs[0].compact.savedChars, "the replay avoids exactly the bytes the first fold avoided");
 });
 
+test("an uncertain ledger commit prevents a provider request instead of silently sending raw history", () => {
+  const host = loadHost({ files: new Map([[CONFIG_PATH, compactConfig()]]), fetchImpl: () => sse(CHAT_SSE) });
+  host.context.grokSwitchCompactMessages = () => { throw Object.assign(new Error('uncertain ledger commit'), { code: 'GROK_SWITCH_COMPACT_COMMIT_UNCERTAIN' }); };
+  const provider = host.context.grokSwitchNormalizeProvider('main', OPENAI);
+  assert.throws(() => host.context.grokSwitchStream(provider, { messages: compactHistory(), tools: [], options: {}, requestKind: 'main' }), { code: 'GROK_SWITCH_COMPACT_COMMIT_UNCERTAIN' });
+  assert.equal(host.fetches.length, 0);
+});
+
 test("ctx-compact records entry.compact only when the engine actually ran", async () => {
   const files = new Map([[CONFIG_PATH, compactConfig()]]);
   const host = loadHost({ files, fetchImpl: () => sse(CHAT_SSE) });

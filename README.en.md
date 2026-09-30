@@ -11,12 +11,20 @@ With Node.js 20+:
 ```sh
 git clone https://github.com/yuwenjie058-boop/grok-switch-plus.git
 cd grok-switch-plus
+npm run demo
+npm run preflight -- examples/synthetic-host.cjs --json
 npm test
 npm run test:cron
 node dist/grok-switch.cjs help
 ```
 
 The core build needs no npm install. Tests use synthetic hosts and temporary directories. The embedded panel is supplied with its source, lockfile and license notices; rebuilding it requires its own dependencies (use Node.js 22.12+).
+
+In **0.1.0-alpha.2**, the offline demo runs the actual engine with compaction disabled/enabled on the same synthetic input: about 184k serialized characters become 12.9k, with stable replay, recoverable originals and a ledger-failure check. These are character counts, not token, cost or quality measurements. No account or network is needed.
+
+`node dist/grok-switch.cjs preflight /path/to/host-main.cjs --json` reads the host and parses an in-memory candidate without executing it, reading provider settings or restarting anything. Exit 0 means structural eligibility; exit 2 means blocked. `runtimeVerified` always remains false. See the [compatibility matrix](docs/COMPATIBILITY.md), [demo](docs/DEMO.md), and [ledger reliability boundaries](docs/RELIABILITY.md). No public alpha.2 real-host version has been certified yet.
+
+The ledger now flushes the candidate file before replacement and its parent directory on Linux, uses a cooperative writer lock and snapshot comparison, preserves corrupt state for inspection, and cancels provisional folds evicted by capacity limits. An uncertain post-rename commit blocks the provider request. This is not a distributed storage guarantee or a physical power-loss test.
 
 ## Scope of this alpha
 
