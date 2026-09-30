@@ -1,6 +1,6 @@
 # Contributing
 
-Start with `npm test` and `npm run test:cron` on Node.js 20+. Core tests do not need real credentials or a running Bot. Use synthetic fixtures for regression coverage.
+Start with `npm test` and `npm run test:cron` on Node.js 20+. For desktop-tool changes also run `npm run test:client` with Python 3.10+. Tests do not need real credentials, a running Bot or an installed client. Use synthetic fixtures for regression coverage.
 
 For a bug report, include the Plus version, OS/Node version, protocol, sanitized error, reproduction steps, expected behavior and actual behavior. Host compatibility reports should identify the host/client version and failing anchor without uploading proprietary bundles. Distinguish a provider API test from a real client round trip.
 

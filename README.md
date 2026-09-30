@@ -2,7 +2,7 @@
 
 **面向 Grok Bot 的持续维护模型切换器，集成宿主适配、工具调用修复、上下文管理与运行恢复。**
 
-**当前版本 `0.1.0-alpha.3`（预发布）** · [下载](https://github.com/yuwenjie058-boop/grok-switch-plus/releases/tag/v0.1.0-alpha.3) · [English](README.en.md) · [兼容性](docs/COMPATIBILITY.md) · [安装与恢复](docs/OPERATIONS.md)
+**当前版本 `0.1.0-alpha.4`（预发布）** · [下载](https://github.com/yuwenjie058-boop/grok-switch-plus/releases/tag/v0.1.0-alpha.4) · [English](README.en.md) · [兼容性](docs/COMPATIBILITY.md) · [安装与恢复](docs/OPERATIONS.md)
 
 Grok Switch Plus 让兼容 Linux Box 中的 Grok Bot 使用你配置的模型 API，并围绕连续工具执行、长对话和宿主更新提供配套能力。下载一个构建文件即可使用完整的切换器、命令行和配置面板，无需先安装上游项目。
 
@@ -19,7 +19,7 @@ PLUS 基于 [enderzcx/grok-bot-switch](https://github.com/enderzcx/grok-bot-swit
 | 更新与恢复 | 提供备份、维护锁、运行版本收据及可选更新守护，帮助发现磁盘补丁与运行进程不一致 |
 | 可验证的交付 | 完整源码、单文件构建、离线演示与 Linux/Windows × Node 20/22 回归检查 |
 
-**alpha.3** 统一了 CLI、配置面板和发行物的 PLUS 身份，并纳入上游 0.8.5 的工具 `strict` 语义与执行机器目标修复。已有的上下文、宿主适配和恢复增强继续保留。详见 [更新记录](CHANGELOG.md) 和 [来源记录](UPSTREAM.md)。
+**alpha.4** 修复上下文参数调整后的历史重放，增加可选的桌面路由恢复与安装完整性工具，并把名单校验、持久化和版本适配集中到独立模块。alpha.3 纳入的上游 0.8.5 修复继续保留。详见 [更新记录](CHANGELOG.md)、[代码结构](docs/ARCHITECTURE.md) 和 [来源记录](UPSTREAM.md)。
 
 新版宿主适配是 PLUS 的维护重点。当前代码包含针对后续宿主结构变化的适配，但公开版本的真实宿主验收记录仍待补齐；请按 [兼容表](docs/COMPATIBILITY.md) 核对自己的环境。稳定性改进对应具体修复和回归测试，不代表所有版本、模型和任务都已验收。
 
@@ -57,6 +57,8 @@ npm run demo
 npm run preflight -- examples/synthetic-host.cjs --json
 npm test
 npm run test:cron
+# 可选桌面工具回归，需要 Python 3.10+
+npm run test:client
 ```
 
 演示把同一份合成工具消息从约 **18.4 万字符缩到 1.29 万字符**，并实际检查重放一致、原文可恢复、账本写入失败时保留原输出。它不调用 API，临时数据自动清理；数字是字符量，不代表 token 费用或任务质量。详见 [演示说明](docs/DEMO.md)。
@@ -77,9 +79,11 @@ node dist/grok-switch.cjs preflight /absolute/path/to/host-main.cjs --json
 
 首次 `install` 会修改宿主并申请重启；测试通过不等于任意宿主版本兼容。仓库不分发官方客户端、`app.asar` 或宿主完整程序。
 
+桌面重启后消息走错执行位置的恢复见 [可选客户端路由工具](experimental/client-routing/README.md)。目前只支持明确校验的 0.57.1 结构，需要 Python 3.10+，只生成候选文件；不会自动部署、重启或替用户决定 Bot 归属。
+
 ## 可选与实验功能
 
-上下文裁剪、提前收尾防护默认关闭，更新守护需显式启用。账本刷盘、写入竞争、容量和恢复边界见 [可靠性说明](docs/RELIABILITY.md)。独立的 [本地调度核心](experimental/local-cron/README.md) 不由安装器接管任务；[员工连续性迁移](docs/MIGRATION.md) 目前提供检查流程，尚无一键迁移器。
+上下文裁剪、提前收尾防护默认关闭，更新守护需显式启用。账本刷盘、写入竞争、容量和恢复边界见 [可靠性说明](docs/RELIABILITY.md)。[客户端路由工具](experimental/client-routing/README.md)、[名单校验核心](experimental/ownership/README.md) 和 [本地调度核心](experimental/local-cron/README.md) 均需单独接入，不由默认安装器接管；[员工连续性迁移](docs/MIGRATION.md) 目前提供检查流程，尚无一键迁移器。
 
 ## 配置与边界
 

@@ -15,7 +15,7 @@ Based on [enderzcx/grok-bot-switch](https://github.com/enderzcx/grok-bot-switch)
 - Backups, maintenance locking, loaded-runtime receipts and an opt-in update watchdog.
 - Complete source, a single-file build, an offline demo and Linux/Windows × Node 20/22 regression coverage.
 
-**Current prerelease: [0.1.0-alpha.3](https://github.com/yuwenjie058-boop/grok-switch-plus/releases/tag/v0.1.0-alpha.3).** This release aligns the panel, CLI and distribution under PLUS, and incorporates upstream 0.8.5 tool strictness and machine-target fixes alongside existing Plus enhancements. See [provenance](UPSTREAM.md) and [changelog](CHANGELOG.md).
+**Current prerelease: [0.1.0-alpha.4](https://github.com/yuwenjie058-boop/grok-switch-plus/releases/tag/v0.1.0-alpha.4).** This release preserves recorded context-fold shapes after configuration changes, adds opt-in desktop routing recovery tools, and isolates integrity, persistence and compatibility logic into focused modules. The upstream 0.8.5 fixes incorporated in alpha.3 remain. See [architecture](docs/ARCHITECTURE.md), [provenance](UPSTREAM.md) and [changelog](CHANGELOG.md).
 
 ## Install or upgrade
 
@@ -34,6 +34,8 @@ npm run demo
 npm run preflight -- examples/synthetic-host.cjs --json
 npm test
 npm run test:cron
+# Optional desktop-tool regressions (Python 3.10+ required)
+npm run test:client
 node dist/grok-switch.cjs help
 ```
 
@@ -41,7 +43,7 @@ The core build needs no npm install. Tests use synthetic hosts and temporary dir
 
 In **0.1.0-alpha.2**, the offline demo runs the actual engine with compaction disabled/enabled on the same synthetic input: about 184k serialized characters become 12.9k, with stable replay, recoverable originals and a ledger-failure check. These are character counts, not token, cost or quality measurements. No account or network is needed.
 
-`node dist/grok-switch.cjs preflight /path/to/host-main.cjs --json` reads the host and parses an in-memory candidate without executing it, reading provider settings or restarting anything. Exit 0 means structural eligibility; exit 2 means blocked. `runtimeVerified` always remains false. See the [compatibility matrix](docs/COMPATIBILITY.md), [demo](docs/DEMO.md), and [ledger reliability boundaries](docs/RELIABILITY.md). No public alpha.3 real-host version has been certified yet.
+`node dist/grok-switch.cjs preflight /path/to/host-main.cjs --json` reads the host and parses an in-memory candidate without executing it, reading provider settings or restarting anything. Exit 0 means structural eligibility; exit 2 means blocked. `runtimeVerified` always remains false. See the [compatibility matrix](docs/COMPATIBILITY.md), [demo](docs/DEMO.md), and [ledger reliability boundaries](docs/RELIABILITY.md). No public alpha.4 real-host version has been certified yet.
 
 The ledger now flushes the candidate file before replacement and its parent directory on Linux, uses a cooperative writer lock and snapshot comparison, preserves corrupt state for inspection, and cancels provisional folds evicted by capacity limits. An uncertain post-rename commit blocks the provider request. This is not a distributed storage guarantee or a physical power-loss test.
 
@@ -56,6 +58,8 @@ The project focuses on obstacles encountered with our pinned older upstream base
 - A narrow, disabled-by-default terminal guard for specific premature completion claims.
 - An experimental local cron controller with durable slot claims and no historical catch-up. It is not wired into the default installer.
 - A migration design describing identity, visible-history handoff, routing and scheduler ownership. No universal migration tool is included.
+- Optional [desktop routing tools](experimental/client-routing/README.md) for explicitly checked 0.57.1 client structures, using Python 3.10+: generate and verify candidates, then deploy separately. No automatic restart or ownership enrollment.
+- A read-only [ownership roster core](experimental/ownership/README.md), not injected by the default installer, with UUID validation, last-good recovery and explicit cold-failure handling.
 
 Deployment targets compatible **Linux Box hosts**, not the Windows desktop application or platform-side Temporal agents. Installing patches the host and requests a restart. Read [operations](docs/OPERATIONS.md) and [migration boundaries](docs/MIGRATION.md) first. Passing synthetic tests does not certify compatibility with arbitrary host releases.
 

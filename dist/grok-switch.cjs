@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// grok-switch-plus 0.1.0-alpha.3 - https://github.com/yuwenjie058-boop/grok-switch-plus
+// grok-switch-plus 0.1.0-alpha.4 - https://github.com/yuwenjie058-boop/grok-switch-plus
 // Derived from enderzcx/grok-bot-switch (MIT); see UPSTREAM.md.
 // Single-file build. Do not edit; regenerate with `node build.mjs`.
 "use strict";
@@ -3513,7 +3513,7 @@ module.exports = {
 // Shared by the injected host and CLI. All names stay in the grokSwitch
 // namespace. Only cooperating writers honor this lock; the official updater
 // requires a separate snapshot recheck immediately before file replacement.
-var GROK_SWITCH_RUNTIME_VERSION = "0.1.0-alpha.3";
+var GROK_SWITCH_RUNTIME_VERSION = "0.1.0-alpha.4";
 var grokSwitchMaintenanceHeld = false;
 var grokSwitchConfigSnapshots = new WeakMap();
 var grokSwitchRuntimeReceipt = null;
@@ -4988,6 +4988,20 @@ function grokSwitchCompactGuardHold(value) {
   return false;
 }
 
+// Select recorded parameters once so eligibility and replay use the same shape.
+// Zero is a valid frozen head/tail; only missing or invalid values fall back.
+function grokSwitchCompactReplayShape(entry, fresh) {
+  if (entry == null || typeof entry !== "object" || entry.shape !== "folded") return fresh;
+  var head = Number(entry.h);
+  var tail = Number(entry.tl);
+  var leafMin = Number(entry.lm);
+  return {
+    head: head >= 0 ? head : fresh.head,
+    tail: tail >= 0 ? tail : fresh.tail,
+    leafMin: leafMin >= 0 ? leafMin : fresh.leafMin
+  };
+}
+
 function grokSwitchCompactMessages(messages, opts) {
   var stats = {
     mode: opts.mode, version: 5, parts: 0, savedChars: 0, folded: 0, frozen: 0,
@@ -5009,6 +5023,7 @@ function grokSwitchCompactMessages(messages, opts) {
   var freshLimit = messages.length - protect;
   var freshHead = Number(opts.freshHeadChars) || 0;
   var freshTail = Number(opts.freshTailChars) || 0;
+  var freshShape = { head: freshHead, tail: freshTail, leafMin: threshold };
   var ledger = apply ? grokSwitchCompactLedgerLoad() : {};
   var ledgerSnapshot = apply ? JSON.stringify(ledger) : null;
   var ledgerDirty = false;
@@ -5040,26 +5055,40 @@ function grokSwitchCompactMessages(messages, opts) {
       var isObject = !isText && result != null && typeof result === "object";
       if (isObject && opts.objectResults === false) continue;
       if (!isText && !isObject) continue;
-      var scan = null;
-      if (isText) {
-        if (result.length < threshold) continue;
-      } else {
-        if (!inFresh) {
-          if (ledgerObjectShapes < 0) {
-            ledgerObjectShapes = 0;
-            for (var ledgerKey in ledger) {
-              if (Object.prototype.hasOwnProperty.call(ledger, ledgerKey)
-                && ledger[ledgerKey] != null
-                && ledger[ledgerKey].k === "object"
-                // v4.1: a `full` object record (error or guard-hold) is not a
-                // folded shape, so it must not turn this optimization off
-                // forever: only a folded object shape needs the hashing.
-                && ledger[ledgerKey].shape === "folded") ledgerObjectShapes += 1;
-            }
+      if (isObject && !inFresh) {
+        if (ledgerObjectShapes < 0) {
+          ledgerObjectShapes = 0;
+          for (var ledgerKey in ledger) {
+            if (Object.prototype.hasOwnProperty.call(ledger, ledgerKey)
+              && ledger[ledgerKey] != null
+              && ledger[ledgerKey].k === "object"
+              // v4.1: a `full` object record (error or guard-hold) is not a
+              // folded shape, so it must not turn this optimization off
+              // forever: only a folded object shape needs the hashing.
+              && ledger[ledgerKey].shape === "folded") ledgerObjectShapes += 1;
           }
-          if (ledgerObjectShapes === 0) continue;
         }
-        scan = grokSwitchCompactScan(result, threshold, freshHead, freshTail);
+        if (ledgerObjectShapes === 0) continue;
+      }
+      // Bound object work before replay identity hashing. This scan must not
+      // filter on today's fold eligibility: the recorded policy may differ.
+      var scan = isObject ? grokSwitchCompactScan(result, threshold, freshHead, freshTail) : null;
+      if (scan != null) {
+        if (scan.overflow) continue;
+        if (scan.unstable) { stats.unstable += 1; continue; }
+        if (scan.leafChars === 0) continue;
+      }
+      // Today's candidate settings govern first sends only. Look up the record
+      // before filtering, or a config edit can silently unfold an old result.
+      // Text retains the v3 digest; objects use the order-independent digest.
+      var hash = apply ? (isText ? grokSwitchContentDigest(result) : grokSwitchStableDigest(result)) : null;
+      var entry = hash == null ? null : ledger[hash];
+      var shape = grokSwitchCompactReplayShape(entry, freshShape);
+      var replaying = shape !== freshShape;
+      if (isText) {
+        if (result.length < threshold && !replaying) continue;
+      } else {
+        if (replaying) scan = grokSwitchCompactScan(result, shape.leafMin, shape.head, shape.tail);
         if (scan.overflow || scan.foldable === 0) continue;
         if (scan.unstable) {
           // A cycle. v4.1 refuses to measure it instead of counting the same
@@ -5113,11 +5142,7 @@ function grokSwitchCompactMessages(messages, opts) {
         }
         continue;
       }
-      // Text keeps v3's digest so existing ledger records (and their replayed
-      // bytes) stay valid; objects get the order-independent digest.
-      var hash = isText ? grokSwitchContentDigest(result) : grokSwitchStableDigest(result);
       if (hash == null) { stats.unhashable += 1; continue; }
-      var entry = ledger[hash];
       // Never seen before: only the fresh window can still be shaped. Anything
       // that was already upstream before this patch saw it keeps its bytes.
       if ((entry == null || typeof entry !== "object") && !inFresh) continue;
@@ -5127,15 +5152,11 @@ function grokSwitchCompactMessages(messages, opts) {
         if (entry.shape === "folded") {
           // Replay with the parameters that were recorded, not with today's
           // config: a config edit must not move bytes that were already sent.
-          var replayHead = Number(entry.h) || freshHead;
-          var replayTail = Number(entry.tl) || freshTail;
           var replay;
           if (isText) {
-            replay = grokSwitchFoldToolText(result, replayHead, replayTail, opts, stats);
+            replay = grokSwitchFoldToolText(result, shape.head, shape.tail, opts, stats);
           } else {
-            var replayLeafMin = Number(entry.lm);
-            if (!(replayLeafMin >= 0)) replayLeafMin = threshold;
-            replay = grokSwitchFoldToolObject(result, replayHead, replayTail, replayLeafMin, opts, stats, hash);
+            replay = grokSwitchFoldToolObject(result, shape.head, shape.tail, shape.leafMin, opts, stats, hash);
           }
           if (replay != null) {
             if (parts == null) parts = m.content.slice();
@@ -7558,7 +7579,7 @@ var cliFs = require("node:fs");
 var cliPath = require("node:path");
 var cliChildProcess = require("node:child_process");
 
-var CLI_VERSION = "0.1.0-alpha.3";
+var CLI_VERSION = "0.1.0-alpha.4";
 var CLI_HOST_PATH = process.env.GROK_SWITCH_HOST || "/home/box/sand-host/host-main.cjs";
 var CLI_HOST_VERSION_PATH = cliPath.join(cliPath.dirname(CLI_HOST_PATH), "version");
 var CLI_BACKUP_PATH = CLI_HOST_PATH + ".grok-switch.orig";

@@ -10,6 +10,7 @@ const files = readdirSync(join(root, "tests"))
   .filter((name) => name.endsWith(".test.mjs"))
   .sort()
   .map((name) => join(root, "tests", name));
+files.push(join(root, "experimental", "ownership", "agent-roster.test.cjs"));
 if (files.length === 0) throw new Error("No core regression tests found");
 const result = spawnSync(process.execPath, ["--test", "--test-reporter=spec", ...files], {
   cwd: root,

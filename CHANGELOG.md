@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.1.0-alpha.4 — 2026-09-30
+
+- Preserve recorded context-fold shapes after threshold or head/tail changes, including zero-length recorded edges. Centralize replay policy selection without weakening ledger commit protections.
+- Keep the bounded object scan ahead of replay hashing, so oversized shared subtrees cannot bypass its existing refusal guard; retain the accepted legacy digest domain for recorded replay.
+- Add opt-in desktop routing recovery tools for the explicitly supported 0.57.1 structure: per-profile confirmed ownership, persistence retry and merge protection, reconnect seeding, candidate-only staging and whole-archive/EXE verification.
+- Compare full embedded routing code as well as its version marker, so same-version corrections are not silently skipped.
+- Add a read-only validated ownership roster core that retains last-good state after malformed updates and blocks cold ownership decisions when no valid roster exists.
+- Separate ASAR integrity, patch adaptation and routing state behind focused interfaces; add synthetic fault tests and Linux/Windows client-tool CI.
+- Keep desktop tools and ownership policy outside the default Linux Box installer. No automatic identity migration, task import, account enrollment or universal new-version compatibility is implied.
+
 ## 0.1.0-alpha.3 — 2026-09-30
 
 - Present PLUS as an independently maintained, complete Grok Bot model switcher, with product capabilities and installation/upgrade paths first.
