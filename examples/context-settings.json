@@ -1,0 +1,12 @@
+{
+  "contextCompact": {
+    "enabled": false,
+    "mode": "dry-run",
+    "thresholdChars": 60000,
+    "freshHeadChars": 8000,
+    "freshTailChars": 4000,
+    "protectRecentMessages": 6,
+    "errorExempt": true,
+    "objectResults": true
+  }
+}

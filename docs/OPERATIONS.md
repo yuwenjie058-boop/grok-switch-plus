@@ -1,0 +1,62 @@
+# 安装、验证与恢复
+
+此版本供能管理自身 Box 环境的开发者试用。目标为 Node.js 20+ 的 Linux 宿主，默认程序路径 `/home/box/sand-host/host-main.cjs`，默认配置目录 `/workspace/grok-switch`。这是接口约定，不代表所有 Grok Bot 版本都符合。环境变量 `GROK_SWITCH_HOST`、`GROK_SWITCH_DIR` 和 `GROK_SWITCH_SUPERVISOR_DIR` 可覆盖测试/部署路径；不能靠改路径把不兼容宿主变成兼容宿主。
+
+## 安装前
+
+1. 确认消息确实到达 Box；平台 Temporal 会话的迁移另见 `MIGRATION.md`。
+2. 保存宿主原始文件及哈希、现有供应商配置、运行目录和恢复方法。备份放在仓库之外。
+3. 等待活跃任务结束，避免同时由旧守护、官方更新或另一个补丁工具写入宿主。
+4. 在独立克隆中运行 `npm test`。把构建后的 `dist/grok-switch.cjs` 复制到目标 Box 的 `/workspace/grok-switch/grok-switch.cjs`，不要用上游下载链接替换 Plus 构建。
+
+## 安装与供应商
+
+在目标 Box 执行：
+
+```sh
+node /workspace/grok-switch/grok-switch.cjs install
+```
+
+它会检查结构、保存原始宿主、打补丁并申请一次重启，同时启动仅监听本机的面板。在 Box 的浏览器中打开输出的面板地址，用自己的 API 地址、模型和 key 配置供应商。不要公开面板端口。
+
+也可通过 `--key-file` 提供私有文件；避免明文 `--key` 被终端历史保留。CLI 完整选项见 `help`。推荐先使用供应商 API key；本版没有针对继承的 Codex 设备认证路径新增验收。
+
+## 验证顺序
+
+```sh
+node /workspace/grok-switch/grok-switch.cjs status --json
+node /workspace/grok-switch/grok-switch.cjs test PROVIDER_NAME --json
+node /workspace/grok-switch/grok-switch.cjs log 5
+```
+
+供应商测试成功只证明接口连通。还需要在真实客户端发一条无副作用消息，确认 Box 收到、供应商实际响应、客户端显示回复。核对运行进程加载的补丁版本与收据，不能只检查磁盘文件。切换身份路由后可能需要完整重启客户端以刷新内存中的 roster/harness 状态。
+
+## 可选上下文处理
+
+示例片段在 `examples/context-settings.json`，需要合并到现有私有配置，不能覆盖其中的供应商信息。先保持关闭，观察后使用 dry-run，再单独决定是否 apply。
+
+折叠处理的是大型工具结果，不是用户对话的通用语义摘要。账本维持已发送内容的形态，原文保存在运行目录 `ctx-cache/` 中。不要在活跃会话中随意清空缓存或账本，也不要把它们上传。`freshHeadChars`/`freshTailChars` 决定保留的首尾；旧 `keepHeadChars`/`keepTailChars` 不再控制裁剪。
+
+## 可选守护
+
+安装和实际请求验证后，再按需启用：
+
+```sh
+node /workspace/grok-switch/grok-switch.cjs watchdog enable
+node /workspace/grok-switch/grok-switch.cjs watchdog run
+```
+
+`run` 运行观察进程，`enable` 才允许修复。发行目录的启动脚本和 `.desktop` 文件是 Linux XDG 模板，需由部署者放到自己的启动机制中；它们不是完整服务管理器，不保证无桌面启动或崩溃自恢复。
+
+守护只处理满足检查的更新。忙碌、版本结构变化、并发写入、运行收据不匹配或持续请求失败都应查看 `watchdog status` 和日志。失败锁定后先定位原因，不能通过反复 enable 隐藏异常。新 PID、匹配收据以及实际请求证据分别说明不同层面的状态。
+
+## 停用与恢复
+
+```sh
+node /workspace/grok-switch/grok-switch.cjs watchdog disable
+node /workspace/grok-switch/grok-switch.cjs official
+```
+
+`official` 切回官方推理但保留配置。要移除宿主补丁，在确认空闲、备份有效后执行 `restore`；它会恢复并申请重启。切回推理供应商不会自动撤销外部的身份、客户端路由或调度变更，这些必须按各自的迁移记录恢复。
+
+恢复后再次确认进程与客户端消息闭环。禁止将“命令退出成功”当成全链路恢复证明。
