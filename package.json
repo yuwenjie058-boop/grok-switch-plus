@@ -9,7 +9,7 @@
   },
   "scripts": {
     "build": "node build.mjs",
-    "test": "node build.mjs && node --test --test-reporter=spec tests/*.test.mjs",
+    "test": "node build.mjs && node scripts/run-tests.mjs",
     "test:cron": "node --test experimental/local-cron/local-cron.test.cjs"
   },
   "repository": {
