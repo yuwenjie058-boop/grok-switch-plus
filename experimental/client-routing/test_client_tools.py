@@ -210,8 +210,10 @@ class ClientToolsTests(unittest.TestCase):
 
     def test_output_io_failure_cleans_candidates(self):
         open_original = Path.open
+        # Match staging's canonical path, including Windows short-path aliases.
+        manifest_path = (self.output / 'manifest.json').resolve()
         def fail_manifest(path, *args, **kwargs):
-            if path == self.output / 'manifest.json':
+            if path == manifest_path:
                 raise OSError('synthetic write failure')
             return open_original(path, *args, **kwargs)
         with patch.object(Path, 'open', fail_manifest), self.assertRaises(OSError):
