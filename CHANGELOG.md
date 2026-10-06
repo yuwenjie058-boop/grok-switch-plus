@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.1.0-alpha.5 — 2026-10-06
+
+- Add an experimental Windows 0.66.0 routing adapter alongside 0.57.1. Check the native roster factory digest and exact wiring before transforming an operator-supplied installation; preserve the new automation return contract and roster ordering.
+- Share explicit version selection between staging, verification and health checks. Reject candidates from another client version and incomplete routing wiring even when archive integrity and runtime content match.
+- Keep routing opt-in per profile, with persistent confirmed ownership, bounded seed retries and reset/stop handling. Installation staging remains separate from deployment.
+- Add Linux client guidance for environment proxies, system certificate trust and encrypted credential storage, with explicit platform and runtime requirements.
+- Extend core CI to Node 24 and client-tool CI to Node 20/24 on Linux/Windows. Add automation, seed-order, version-isolation and missing-wiring regressions.
+- Validation boundary: a supplied Windows 0.66.0 archive passed offline staging, all 582 packed-entry checks, EXE pairing and full transformed-file syntax checks. This is not certification of a live client-to-Box-to-provider round trip. Official Linux login/reopen observations do not certify PLUS routing on Linux.
+
 ## 0.1.0-alpha.4 — 2026-09-30
 
 - Preserve recorded context-fold shapes after threshold or head/tail changes, including zero-length recorded edges. Centralize replay policy selection without weakening ledger commit protections.

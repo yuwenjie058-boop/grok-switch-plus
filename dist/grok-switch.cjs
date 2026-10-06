@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// grok-switch-plus 0.1.0-alpha.4 - https://github.com/yuwenjie058-boop/grok-switch-plus
+// grok-switch-plus 0.1.0-alpha.5 - https://github.com/yuwenjie058-boop/grok-switch-plus
 // Derived from enderzcx/grok-bot-switch (MIT); see UPSTREAM.md.
 // Single-file build. Do not edit; regenerate with `node build.mjs`.
 "use strict";
@@ -3513,7 +3513,7 @@ module.exports = {
 // Shared by the injected host and CLI. All names stay in the grokSwitch
 // namespace. Only cooperating writers honor this lock; the official updater
 // requires a separate snapshot recheck immediately before file replacement.
-var GROK_SWITCH_RUNTIME_VERSION = "0.1.0-alpha.4";
+var GROK_SWITCH_RUNTIME_VERSION = "0.1.0-alpha.5";
 var grokSwitchMaintenanceHeld = false;
 var grokSwitchConfigSnapshots = new WeakMap();
 var grokSwitchRuntimeReceipt = null;
@@ -7579,7 +7579,7 @@ var cliFs = require("node:fs");
 var cliPath = require("node:path");
 var cliChildProcess = require("node:child_process");
 
-var CLI_VERSION = "0.1.0-alpha.4";
+var CLI_VERSION = "0.1.0-alpha.5";
 var CLI_HOST_PATH = process.env.GROK_SWITCH_HOST || "/home/box/sand-host/host-main.cjs";
 var CLI_HOST_VERSION_PATH = cliPath.join(cliPath.dirname(CLI_HOST_PATH), "version");
 var CLI_BACKUP_PATH = CLI_HOST_PATH + ".grok-switch.orig";

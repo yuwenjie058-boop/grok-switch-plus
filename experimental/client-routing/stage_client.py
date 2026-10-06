@@ -7,11 +7,8 @@ from pathlib import Path
 
 from asar import (archive_problems, embedded_record, encode_archive, load_archive,
                   load_archive_bytes, payload_of, version_of, walk)
-from patch_routing import patch_client_routing_profile, patch_coordinator, RESTART_MARK
-
-SUPPORTED_VERSION = '0.57.1'
-PATCHERS = {'dist/electron-main/main-app.cjs': patch_client_routing_profile,
-            'dist/node-agent-coordinator/main.cjs': patch_coordinator}
+from patch_routing import RESTART_MARK
+from client_versions import adapter_for
 
 
 def install_files(install_dir):
@@ -31,15 +28,17 @@ def stage(install_dir, destination):
     if problems:
         raise ValueError('invalid source ASAR: ' + '; '.join(problems))
     version = version_of(raw, header, start)
-    if version != SUPPORTED_VERSION:
-        raise ValueError('unsupported client version: ' + str(version))
+    adapter = adapter_for(version)
+    patchers = adapter.patchers
     entries = dict(walk(header))
-    if not all(path in entries and 'offset' in entries[path] for path in PATCHERS):
+    if not all(path in entries and 'offset' in entries[path] for path in patchers):
         raise ValueError('missing packed routing target')
     payloads = {path: payload_of(raw, start, item) for path, item in entries.items() if 'offset' in item}
     changed = []
-    for path, patcher in PATCHERS.items():
+    for path, patcher in patchers.items():
         replacement = patcher(payloads[path].decode('utf8')).encode('utf8')
+        if not adapter.current(path, replacement.decode('utf8')):
+            raise ValueError(path + ': routing transform produced incomplete wiring')
         if replacement != payloads[path]:
             changed.append(path)
         payloads[path] = replacement
