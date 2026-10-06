@@ -7,6 +7,7 @@ from pathlib import Path
 
 from patch_routing import RESTART_MARK
 from asar import load_archive, walk, payload_of, archive_problems
+from client_versions import adapter_for, SUPPORTED_VERSIONS, MAIN
 
 MARKER = 'grok-switch-box-routing'
 GUARD = '__gsBoxRouting'
@@ -105,7 +106,13 @@ def inspect_install(install, profiles):
     patched = integrity_ok = None
     transcript_routing = restart_routing = profile_bootstrap = runtime_current = False
     version = patch_version = None
+    sources = {}
     for path, item in walk(header):
+        if path in (MAIN, COORD):
+            try:
+                sources[path] = payload_of(raw, start, item).decode('utf8')
+            except (ValueError, KeyError, TypeError, UnicodeError):
+                pass
         if path == COORD:
             try:
                 payload = payload_of(raw, start, item)
@@ -137,22 +144,35 @@ def inspect_install(install, profiles):
                 version = json.loads(payload_of(raw, start, item)).get('version')
             except Exception:
                 pass
+    wiring_current = False
+    if version in SUPPORTED_VERSIONS:
+        adapter = adapter_for(version)
+        wiring_current = all(adapter.current(path, sources.get(path, '')) for path in (MAIN, COORD))
+        if version == '0.66.0':
+            module = adapter.module
+            src = sources.get(COORD, '')
+            expected_runtime = module.routing_runtime()
+            runtime_current = src.count(expected_runtime) == 1
+            transcript_routing = src.count(module.READ_PATCHED) == 2
+            restart_routing = all(src.count(after) == 1 for _, after in module.wiring())
+            profile_bootstrap = adapter.current(MAIN, sources.get(MAIN, ''))
     binary = exe.read_bytes()
     record = ('"alg":"SHA256","value":"' + header_hash + '"').encode()
     profile_results = {f'profile{index + 1}': profile_metadata(path) for index, path in enumerate(profiles)}
     markers = {name: value['marker'] for name, value in profile_results.items()}
     result.update({'clientVersion': version, 'coordinatorPatched': patched,
-                   'clientVersionSupported': version == '0.57.1',
+                   'clientVersionSupported': version in SUPPORTED_VERSIONS,
                    'coordinatorIntegrityOk': integrity_ok, 'transcriptRoutingPatched': transcript_routing,
                    'restartRoutingPatched': restart_routing, 'profileBootstrapPatched': profile_bootstrap,
                    'patchVersion': patch_version, 'expectedPatchVersion': RESTART_MARK,
                    'routingRuntimeCurrent': runtime_current,
+                   'routingWiringCurrent': wiring_current, 'runtimeVerified': False,
                    'integrityProblems': problems, 'archiveIntegrityOk': not problems,
                    'packedEntriesChecked': sum('offset' in item for _, item in walk(header)),
                    'exeEmbedsAsarHeaderHash': binary.count(record) == 1,
                    'markers': markers, 'profiles': profile_results,
                    'restartCacheReady': bool(profile_results) and all(p['pinCacheValid'] for p in profile_results.values())})
-    healthy = bool(patched and transcript_routing and restart_routing and profile_bootstrap and runtime_current
+    healthy = bool(wiring_current and patched and transcript_routing and restart_routing and profile_bootstrap and runtime_current
                    and integrity_ok and not problems and result['exeEmbedsAsarHeaderHash']
                    and result['clientVersionSupported']
                    and bool(markers) and all(markers.values()))
