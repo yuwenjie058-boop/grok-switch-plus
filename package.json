@@ -1,6 +1,6 @@
 {
   "name": "grok-switch-plus",
-  "version": "0.1.0-alpha.5",
+  "version": "0.1.0-alpha.4",
   "private": true,
   "description": "An independently maintained Grok Bot model switcher with host adaptation, tool reliability, context management and guarded recovery. Based on grok-bot-switch.",
   "license": "MIT",

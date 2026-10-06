@@ -16,7 +16,7 @@ import patch_routing
 import stage_client
 import verify_client
 
-from client_versions import MAIN, COORD
+MAIN, COORD = stage_client.PATCHERS
 
 
 def coordinator_fixture():

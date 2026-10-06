@@ -5,8 +5,7 @@ import json
 from pathlib import Path
 
 from asar import compare_archives, embedded_record, load_archive, payload_of, version_of, walk
-from stage_client import install_files
-from client_versions import adapter_for
+from stage_client import install_files, PATCHERS, SUPPORTED_VERSION
 from patch_routing import RESTART_MARK
 
 
@@ -16,21 +15,18 @@ def verify(install_dir, staged_dir):
     staged, exe = candidate / 'app.asar', candidate / 'Grok Bot.exe'
     result = compare_archives(original, staged)
     problems = result['integrityProblems']
+    for archive in (original, staged):
+        raw, header, start, _ = load_archive(archive)
+        if version_of(raw, header, start) != SUPPORTED_VERSION:
+            problems.append('unsupported client version')
     raw0, header0, start0, _ = load_archive(original)
     raw1, header1, start1, _ = load_archive(staged)
-    version = version_of(raw0, header0, start0)
-    adapter = adapter_for(version)
-    patchers = adapter.patchers
-    if version_of(raw1, header1, start1) != version:
-        problems.append('candidate client version differs from source')
     entries0, entries1 = dict(walk(header0)), dict(walk(header1))
-    for path, patcher in patchers.items():
+    for path, patcher in PATCHERS.items():
         try:
             expected = patcher(payload_of(raw0, start0, entries0[path]).decode('utf8')).encode('utf8')
             if payload_of(raw1, start1, entries1[path]) != expected:
                 problems.append(path + ': does not match the routing transform')
-            if not adapter.current(path, payload_of(raw1, start1, entries1[path]).decode('utf8')):
-                problems.append(path + ': incomplete or outdated routing candidate')
         except (KeyError, TypeError, ValueError) as error:
             problems.append(path + ': ' + str(error))
     before, after = original_exe.read_bytes(), exe.read_bytes()
@@ -41,7 +37,7 @@ def verify(install_dir, staged_dir):
     if not result['exeRecordOk'] or before.replace(old_record, new_record, 1) != after:
         problems.append('EXE is not the exact source pair with only its ASAR hash replaced')
     manifest = json.loads((candidate / 'manifest.json').read_text(encoding='utf8'))
-    expected = {'clientVersion': version, 'patchVersion': RESTART_MARK,
+    expected = {'clientVersion': SUPPORTED_VERSION, 'patchVersion': RESTART_MARK,
                 'originalHeaderHash': result['originalHeaderHash'], 'stagedHeaderHash': result['stagedHeaderHash'],
                 'changed': result['changed'], 'originalArchiveSha256': hashlib.sha256(raw0).hexdigest(),
                 'archiveSha256': hashlib.sha256(raw1).hexdigest(),

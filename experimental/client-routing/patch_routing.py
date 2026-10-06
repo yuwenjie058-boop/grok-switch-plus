@@ -82,12 +82,7 @@ SEED_ANCHOR = ('async function M(){try{let E=await V.dispatchCommand("listAgents
 def patch_restart_routing(source):
     """Persist confirmed ownership per profile; retry a failed gateway seed."""
     if RESTART_MARK in source:
-        required = ['Rb({dataDir:r.processConfig.boxRoutingProfileDir})',
-                    '__gsSeedController??=__gsRosterSeed({',
-                    'return __gsSeedController.request()',
-                    'bootstrap:{processConfig:{appVersion:r,isPackaged:n,dataDir:o,'
-                    '...qt(t.processConfig.boxRoutingProfileDir)?'
-                    '{boxRoutingProfileDir:t.processConfig.boxRoutingProfileDir}:{}}}',
+        required = ['Rb({dataDir:r.processConfig.boxRoutingProfileDir})', '__gsRosterSeed(',
                     '__gsSeedController?.reset()', '__gsSeedController?.stop()', 'f.__gsStop()',
                     'acceptsAgent:({agentId:E})=>!f.__gsOwnsBox(E)&&f.harnessOf(E)!=="unsupported"',
                     'Xt=!0,f.__gsStop(),__gsSeedController?.stop(),V.close(),ne.stop()']

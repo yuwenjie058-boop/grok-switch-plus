@@ -2,7 +2,7 @@
 
 **面向 Grok Bot 的持续维护模型切换器，集成宿主适配、工具调用修复、上下文管理与运行恢复。**
 
-**当前候选 `0.1.0-alpha.5`（预发布）** · [下载已发布版本](https://github.com/yuwenjie058-boop/grok-switch-plus/releases) · [English](README.en.md) · [兼容性](docs/COMPATIBILITY.md) · [安装与恢复](docs/OPERATIONS.md)
+**当前版本 `0.1.0-alpha.4`（预发布）** · [下载](https://github.com/yuwenjie058-boop/grok-switch-plus/releases/tag/v0.1.0-alpha.4) · [English](README.en.md) · [兼容性](docs/COMPATIBILITY.md) · [安装与恢复](docs/OPERATIONS.md)
 
 Grok Switch Plus 让兼容 Linux Box 中的 Grok Bot 使用你配置的模型 API，并围绕连续工具执行、长对话和宿主更新提供配套能力。下载一个构建文件即可使用完整的切换器、命令行和配置面板，无需先安装上游项目。
 
@@ -17,9 +17,9 @@ PLUS 基于 [enderzcx/grok-bot-switch](https://github.com/enderzcx/grok-bot-swit
 | 连续工具执行 | 修复流式参数交付、图片历史与成功轮询误判；校验执行机器目标，避免无效参数被派发 |
 | 长对话管理 | 传递模型容量元数据；可选工具输出裁剪，保存原文并重放既有形态 |
 | 更新与恢复 | 提供备份、维护锁、运行版本收据及可选更新守护，帮助发现磁盘补丁与运行进程不一致 |
-| 可验证的交付 | 完整源码、单文件构建、离线演示；核心 CI 配置覆盖 Linux/Windows × Node 20/22/24 |
+| 可验证的交付 | 完整源码、单文件构建、离线演示与 Linux/Windows × Node 20/22 回归检查 |
 
-**alpha.5 候选** 为可选桌面路由工具增加 Windows `0.66.0` 精确结构适配，保留 `0.57.1`。新增原生工厂摘要校验和完整接线健康检查，保留原生 automation 契约；只读检查的 `runtimeVerified` 仍为 `false`。本机真实 `0.66.0` 安装包的候选生成、582 个 packed 条目验证及两个 CJS 语法检查通过，尚未完成该公开构建的真实登录与消息往返认证。此前上下文重放修复和上游 0.8.5 修复继续保留。详见 [兼容证据](docs/COMPATIBILITY.md)、[更新记录](CHANGELOG.md)、[代码结构](docs/ARCHITECTURE.md) 和 [来源记录](UPSTREAM.md)。
+**alpha.4** 修复上下文参数调整后的历史重放，增加可选的桌面路由恢复与安装完整性工具，并把名单校验、持久化和版本适配集中到独立模块。alpha.3 纳入的上游 0.8.5 修复继续保留。详见 [更新记录](CHANGELOG.md)、[代码结构](docs/ARCHITECTURE.md) 和 [来源记录](UPSTREAM.md)。
 
 新版宿主适配是 PLUS 的维护重点。当前代码包含针对后续宿主结构变化的适配，但公开版本的真实宿主验收记录仍待补齐；请按 [兼容表](docs/COMPATIBILITY.md) 核对自己的环境。稳定性改进对应具体修复和回归测试，不代表所有版本、模型和任务都已验收。
 
@@ -79,9 +79,7 @@ node dist/grok-switch.cjs preflight /absolute/path/to/host-main.cjs --json
 
 首次 `install` 会修改宿主并申请重启；测试通过不等于任意宿主版本兼容。仓库不分发官方客户端、`app.asar` 或宿主完整程序。
 
-桌面重启后消息走错执行位置的恢复见 [可选客户端路由工具](experimental/client-routing/README.md)。目前支持明确校验的 Windows `0.57.1` / `0.66.0` 结构，需要 Python 3.10+，只生成并验证候选文件；不会自动部署、重启或替用户决定 Bot 归属。相同版本号但未知源结构也会拒绝。工具 CI 配置为 Linux/Windows × Node 20/24 × Python 3.10/3.12，仍属于预发布实验工具。
-
-官方 Linux 客户端连接或登录保持问题见 [Linux 代理、证书与安全存储指南](docs/LINUX-CLIENT.md)。官方客户端登录及同会话重开实测，不等于 PLUS 的 Linux 桌面补丁支持或完整路由认证。
+桌面重启后消息走错执行位置的恢复见 [可选客户端路由工具](experimental/client-routing/README.md)。目前只支持明确校验的 0.57.1 结构，需要 Python 3.10+，只生成候选文件；不会自动部署、重启或替用户决定 Bot 归属。
 
 ## 可选与实验功能
 
